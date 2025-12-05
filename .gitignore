@@ -1,0 +1,14 @@
+# Build artifacts
+/bin/
+/dist/
+
+# Temporary caches
+/tmp/
+/tmp/**
+
+# Local environment files
+.env
+.env.*
+
+# Logs
+*.log

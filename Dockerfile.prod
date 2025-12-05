@@ -1,0 +1,23 @@
+# myesi-notification-service/Dockerfile (PROD)
+
+# ---------- STAGE 1: Build ----------
+FROM golang:1.25-alpine AS builder
+WORKDIR /app
+
+COPY go.mod .
+RUN go mod download
+
+COPY . .
+
+RUN go build -o notification-service ./cmd/main.go
+
+# ---------- STAGE 2: Runtime ----------
+FROM alpine:3.20
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /app/notification-service .
+
+EXPOSE 8006
+CMD ["./notification-service"]

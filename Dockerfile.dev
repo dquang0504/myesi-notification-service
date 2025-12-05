@@ -1,0 +1,16 @@
+# ---------- STAGE: Development ----------
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache git curl bash build-base ca-certificates \
+    && go install github.com/air-verse/air@latest
+
+COPY go.mod .
+RUN go mod download
+
+COPY . .
+
+EXPOSE 8006
+
+CMD ["air", "-c", ".air.toml"]
