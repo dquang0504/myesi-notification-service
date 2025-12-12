@@ -34,6 +34,7 @@ func main() {
 	logRepo := &repository.LogRepositoryPG{DB: db.Conn}
 	inboxRepo := &repository.InboxRepositoryPG{DB: db.Conn}
 	orgUserRepo := &repository.OrgUserRepositoryPG{DB: db.Conn}
+	orgSettingsRepo := &repository.OrgSettingsRepositoryPG{DB: db.Conn}
 
 	svc := &domain.NotificationService{
 		Templates:   tplRepo,
@@ -41,6 +42,7 @@ func main() {
 		Logs:        logRepo,
 		Inbox:       inboxRepo,
 		OrgUsers:    orgUserRepo,
+		OrgSettings: orgSettingsRepo,
 		Email: providers.SMTPProvider{
 			Host: cfg.SMTPHost,
 			Port: cfg.SMTPPort,

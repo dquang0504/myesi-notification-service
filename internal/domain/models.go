@@ -121,6 +121,21 @@ type OrgUserRepository interface {
 	ListUserIDsByOrgWithRole(ctx Context, orgID int64, role string) ([]int64, error)
 }
 
+// OrgSettingsRepository exposes organization-level notification toggles.
+type OrgSettingsRepository interface {
+	Get(ctx Context, orgID int64) (*OrgSettings, error)
+}
+
+// OrgSettings represents persisted organization notification preferences.
+type OrgSettings struct {
+	OrganizationID      int64 `json:"organization_id"`
+	EmailNotifications  bool  `json:"email_notifications"`
+	VulnerabilityAlerts bool  `json:"vulnerability_alerts"`
+	WeeklyReports       bool  `json:"weekly_reports"`
+	UserActivityAlerts  bool  `json:"user_activity_alerts"`
+	AdminEmail          string `json:"admin_email"`
+}
+
 // EmailProvider dispatches email notifications.
 type EmailProvider interface {
 	SendEmail(ctx Context, to []string, subject string, body string) error

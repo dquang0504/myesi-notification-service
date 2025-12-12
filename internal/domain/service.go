@@ -25,6 +25,7 @@ type NotificationService struct {
 	Logs        LogRepository
 	Inbox       InboxRepository
 	OrgUsers    OrgUserRepository
+	OrgSettings OrgSettingsRepository
 	Email       EmailProvider
 	Slack       SlackProvider
 	Webhook     WebhookProvider
@@ -40,6 +41,16 @@ func (s *NotificationService) HandleEvent(ctx context.Context, evt NotificationE
 	}
 	if evt.OccurredAt.IsZero() {
 		evt.OccurredAt = time.Now().UTC()
+	}
+
+	var settings *OrgSettings
+	if s.OrgSettings != nil && evt.OrganizationID != 0 {
+		if st, err := s.OrgSettings.Get(ctx, evt.OrganizationID); err == nil {
+			settings = st
+		}
+	}
+	if !eventEnabled(evt.EventType, settings) {
+		return nil
 	}
 
 	data := buildTemplateData(evt)
@@ -104,7 +115,7 @@ func (s *NotificationService) HandleEvent(ctx context.Context, evt NotificationE
 		}
 	}
 
-	targets := s.resolveTargets(ctx, evt)
+	targets := s.resolveTargets(ctx, evt, settings)
 	if len(targets) == 0 {
 		log.Printf("[NOTIFY] No targets resolved for event %s", evt.EventType)
 		return nil
@@ -152,7 +163,7 @@ func (s *NotificationService) HandleEvent(ctx context.Context, evt NotificationE
 	return nil
 }
 
-func (s *NotificationService) resolveTargets(ctx context.Context, evt NotificationEvent) []DeliveryTarget {
+func (s *NotificationService) resolveTargets(ctx context.Context, evt NotificationEvent, settings *OrgSettings) []DeliveryTarget {
 	prefs, err := s.Preferences.List(ctx, evt.OrganizationID, evt.UserID, evt.EventType)
 	if err != nil {
 		log.Printf("[NOTIFY] preference lookup failed: %v", err)
@@ -166,6 +177,9 @@ func (s *NotificationService) resolveTargets(ctx context.Context, evt Notificati
 		if !shouldSendForSeverity(pref.SeverityMin, evt.Severity) {
 			continue
 		}
+		if pref.Channel == ChannelEmail && settings != nil && !settings.EmailNotifications {
+			continue
+		}
 		resolved = append(resolved, DeliveryTarget{Channel: pref.Channel, Target: pref.Target})
 	}
 
@@ -176,9 +190,9 @@ func (s *NotificationService) resolveTargets(ctx context.Context, evt Notificati
 			return resolved
 		}
 
-		if len(evt.TargetEmails) > 0 {
+		if len(evt.TargetEmails) > 0 && (settings == nil || settings.EmailNotifications) {
 			resolved = append(resolved, DeliveryTarget{Channel: ChannelEmail, Target: strings.Join(evt.TargetEmails, ",")})
-		} else if len(s.Defaults.Emails) > 0 {
+		} else if len(s.Defaults.Emails) > 0 && (settings == nil || settings.EmailNotifications) {
 			resolved = append(resolved, DeliveryTarget{Channel: ChannelEmail, Target: strings.Join(s.Defaults.Emails, ",")})
 		}
 
@@ -253,6 +267,27 @@ func (s *NotificationService) resolveTemplate(ctx context.Context, eventType, ch
 			Channel:   channel,
 			Subject:   "Project scan summary",
 			Body:      "{{.payload.project}} scan complete: {{.payload.vulns}} vulns, {{.payload.code_findings}} code findings.",
+		}
+	case "vulnerability.critical":
+		return NotificationTemplate{
+			EventType: eventType,
+			Channel:   channel,
+			Subject:   "Critical vulnerability detected",
+			Body:      "{{.payload.project}} reported {{.payload.critical_count}} critical vulnerabilities. Please review immediately.",
+		}
+	case "weekly.report.generated":
+		return NotificationTemplate{
+			EventType: eventType,
+			Channel:   channel,
+			Subject:   "Weekly security summary",
+			Body:      "Summary for {{.payload.organization_name}} ({{.payload.report_week}}): {{.payload.metrics.active_vulnerabilities}} active vulns, {{.payload.metrics.critical_vulnerabilities}} critical, avg risk {{printf \"%.2f\" .payload.metrics.average_risk_score}}.",
+		}
+	case "user.activity.suspicious-login":
+		return NotificationTemplate{
+			EventType: eventType,
+			Channel:   channel,
+			Subject:   "Suspicious login detected",
+			Body:      "User {{.payload.user.email}} logged in from {{.payload.current_ip}} (previous {{.payload.previous_ip}}). Verify this activity.",
 		}
 	case "sbom.scan.summary":
 		return NotificationTemplate{
@@ -346,6 +381,22 @@ func buildTemplateData(evt NotificationEvent) map[string]interface{} {
 		"payload": evt.Payload,
 	}
 	return data
+}
+
+func eventEnabled(eventType string, settings *OrgSettings) bool {
+	if settings == nil {
+		return true
+	}
+	switch {
+	case strings.HasPrefix(eventType, "vulnerability."):
+		return settings.VulnerabilityAlerts
+	case strings.HasPrefix(eventType, "weekly.report"):
+		return settings.WeeklyReports
+	case strings.HasPrefix(eventType, "user.activity"):
+		return settings.UserActivityAlerts
+	default:
+		return true
+	}
 }
 
 func shouldSendForSeverity(min, actual string) bool {
