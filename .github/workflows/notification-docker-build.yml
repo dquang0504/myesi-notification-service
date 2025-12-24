@@ -1,0 +1,43 @@
+name: Docker Build & Push Notification Service
+
+on:
+  workflow_run:
+    workflows: ["Build & Test Notification Service"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - "myesi-notification-service/**"
+      - ".github/workflows/notification-docker-build.yml"
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'push')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        working-directory: myesi-notification-service
+        run: |
+          docker build -f Dockerfile.prod -t ${{ secrets.DOCKER_USERNAME }}/myesi-notification-service:${{ github.sha }} .
+
+      - name: Tag Docker image as latest
+        run: |
+          docker tag ${{ secrets.DOCKER_USERNAME }}/myesi-notification-service:${{ github.sha }} \
+            ${{ secrets.DOCKER_USERNAME }}/myesi-notification-service:latest
+
+      - name: Push Docker images to registry
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/myesi-notification-service:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/myesi-notification-service:latest

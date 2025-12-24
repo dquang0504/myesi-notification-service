@@ -128,11 +128,11 @@ type OrgSettingsRepository interface {
 
 // OrgSettings represents persisted organization notification preferences.
 type OrgSettings struct {
-	OrganizationID      int64 `json:"organization_id"`
-	EmailNotifications  bool  `json:"email_notifications"`
-	VulnerabilityAlerts bool  `json:"vulnerability_alerts"`
-	WeeklyReports       bool  `json:"weekly_reports"`
-	UserActivityAlerts  bool  `json:"user_activity_alerts"`
+	OrganizationID      int64  `json:"organization_id"`
+	EmailNotifications  bool   `json:"email_notifications"`
+	VulnerabilityAlerts bool   `json:"vulnerability_alerts"`
+	WeeklyReports       bool   `json:"weekly_reports"`
+	UserActivityAlerts  bool   `json:"user_activity_alerts"`
 	AdminEmail          string `json:"admin_email"`
 }
 

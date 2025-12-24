@@ -53,14 +53,6 @@ func (r *stubPrefRepo) Save(ctx Context, pref NotificationPreference) (Notificat
 	return pref, nil
 }
 
-func (r *stubLogRepo) Insert(ctx Context, log NotificationLog) error {
-	r.entries = append(r.entries, log)
-	return nil
-}
-func (r *stubLogRepo) List(ctx Context, orgID int64, eventType, status, channel string, limit, offset int) ([]NotificationLog, error) {
-	return r.entries, nil
-}
-
 func (s *stubEmail) SendEmail(ctx Context, to []string, subject, body string) error {
 	if s.err != nil {
 		return s.err

@@ -86,8 +86,11 @@ func parseEvent(data []byte) (domain.NotificationEvent, error) {
 				}
 			}
 			if evt.Payload == nil {
-				evt.Payload = generic
+				if payload, ok := generic["payload"].(map[string]interface{}); ok {
+					evt.Payload = payload
+				}
 			}
+			evt = hydrateFromEnvelope(evt, generic)
 		}
 	}
 
@@ -120,6 +123,110 @@ func parseLooseEvent(data []byte) (domain.NotificationEvent, error) {
 	if sev, ok := generic["severity"]; ok {
 		evt.Severity = fmt.Sprintf("%v", sev)
 	}
-	evt.Payload = generic
+	if payload, ok := generic["payload"].(map[string]interface{}); ok {
+		evt.Payload = payload
+	} else if dataMap, ok := generic["data"].(map[string]interface{}); ok {
+		if pl, ok := dataMap["payload"].(map[string]interface{}); ok {
+			evt.Payload = pl
+		} else {
+			evt.Payload = dataMap
+		}
+		if evt.Severity == "" {
+			if sev, ok := dataMap["severity"]; ok {
+				evt.Severity = fmt.Sprintf("%v", sev)
+			}
+		}
+		if evt.TargetEmails == nil || len(evt.TargetEmails) == 0 {
+			if rawEmails, ok := dataMap["emails"]; ok {
+				evt.TargetEmails = toStringSlice(rawEmails)
+			}
+		}
+		if evt.UserID == nil {
+			if uid, ok := toInt64(dataMap["user_id"]); ok {
+				evt.UserID = &uid
+			}
+		}
+	} else {
+		evt.Payload = generic
+	}
 	return evt, nil
+}
+
+func hydrateFromEnvelope(evt domain.NotificationEvent, generic map[string]interface{}) domain.NotificationEvent {
+	dataField, ok := generic["data"].(map[string]interface{})
+	if !ok {
+		return evt
+	}
+
+	if evt.Severity == "" {
+		if sev, ok := dataField["severity"]; ok {
+			evt.Severity = fmt.Sprintf("%v", sev)
+		}
+	}
+	if evt.Payload == nil {
+		if payload, ok := dataField["payload"].(map[string]interface{}); ok {
+			evt.Payload = payload
+		} else {
+			evt.Payload = dataField
+		}
+	}
+	if evt.TargetEmails == nil || len(evt.TargetEmails) == 0 {
+		if rawEmails, ok := dataField["emails"]; ok {
+			evt.TargetEmails = toStringSlice(rawEmails)
+		}
+	}
+	if evt.UserID == nil {
+		if uid, ok := toInt64(dataField["user_id"]); ok {
+			evt.UserID = &uid
+		}
+	}
+	if evt.WebhookURL == "" {
+		if webhook, ok := dataField["webhook_url"].(string); ok {
+			evt.WebhookURL = webhook
+		}
+	}
+	if evt.SlackWebhook == "" {
+		if slack, ok := dataField["slack_webhook"].(string); ok {
+			evt.SlackWebhook = slack
+		}
+	}
+	return evt
+}
+
+func toStringSlice(value interface{}) []string {
+	switch v := value.(type) {
+	case []string:
+		return v
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			out = append(out, fmt.Sprintf("%v", item))
+		}
+		return out
+	case string:
+		return []string{v}
+	default:
+		return nil
+	}
+}
+
+func toInt64(value interface{}) (int64, bool) {
+	switch v := value.(type) {
+	case int:
+		return int64(v), true
+	case int64:
+		return v, true
+	case float64:
+		return int64(v), true
+	case json.Number:
+		if i, err := v.Int64(); err == nil {
+			return i, true
+		}
+	case string:
+		var parsed int64
+		if _, err := fmt.Sscan(v, &parsed); err == nil {
+			return parsed, true
+		}
+	}
+	return 0, false
 }

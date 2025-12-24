@@ -1,0 +1,57 @@
+name: Build & Test Notification Service
+
+on:
+  push:
+    branches: [ develop, main, feature/* ]
+    paths:
+      - "myesi-notification-service/**"
+      - ".github/workflows/notification-build-test.yml"
+  pull_request:
+    branches: [ develop, main ]
+    paths:
+      - "myesi-notification-service/**"
+      - ".github/workflows/notification-build-test.yml"
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: myesi-notification-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+          cache-dependency-path: myesi-notification-service/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install goimports
+        run: go install golang.org/x/tools/cmd/goimports@latest
+
+      - name: Format code
+        run: |
+          go fmt ./...
+          goimports -w .
+
+      - name: Vet code
+        run: go vet ./...
+
+      - name: Run unit tests (race)
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          go test ./... -v -count=1 -race
+
+      - name: Build
+        run: |
+          mkdir -p bin
+          go build -v -o bin/myesi-notification-service ./cmd

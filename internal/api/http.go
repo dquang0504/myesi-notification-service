@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -36,6 +37,10 @@ func RegisterRoutes(app *fiber.App, deps HandlerDeps) {
 	api.Post("/events", deps.ingestEvent)
 }
 
+type Notifier interface {
+	HandleEvent(ctx context.Context, evt domain.NotificationEvent) error
+}
+
 // HandlerDeps groups dependencies for handlers.
 type HandlerDeps struct {
 	Templates    domain.TemplateRepository
@@ -43,7 +48,7 @@ type HandlerDeps struct {
 	Logs         domain.LogRepository
 	Inbox        domain.InboxRepository
 	ServiceToken string
-	Svc          *domain.NotificationService
+	Svc          Notifier
 }
 
 func (h HandlerDeps) listTemplates(c *fiber.Ctx) error {
