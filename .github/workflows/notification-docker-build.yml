@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "myesi-notification-service/**"
+      - "**"
       - ".github/workflows/notification-docker-build.yml"
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build Docker image
-        working-directory: myesi-notification-service
+        working-directory: .
         run: |
           docker build -f Dockerfile.prod -t ${{ secrets.DOCKER_USERNAME }}/myesi-notification-service:${{ github.sha }} .
 

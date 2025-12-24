@@ -4,7 +4,7 @@ on:
   push:
     branches: [ develop, main, feature/* ]
     paths:
-      - "myesi-notification-service/**"
+      - "**"
       - ".github/workflows/notification-build-test.yml"
   pull_request:
     branches: [ develop, main ]
@@ -18,7 +18,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: myesi-notification-service
+        working-directory: .
 
     steps:
       - name: Checkout code
@@ -29,7 +29,7 @@ jobs:
         with:
           go-version: "1.23"
           cache: true
-          cache-dependency-path: myesi-notification-service/go.sum
+          cache-dependency-path: go.sum
 
       - name: Download dependencies
         run: go mod download
